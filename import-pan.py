@@ -120,42 +120,53 @@ def parse_address_group():
         print('}')
 
 
+def rule_dumps_values(m):
+    for p in sorted(m.keys()):
+        if m[p] is not None:
+            print('    {} = {}'.format(p, json.dumps(m[p])))
+
+
 def process_rules(rules: List[pandevice.policies.SecurityRule]):
     global dg, options, pan
     for rule in rules:
         print('  rule {')
-        print('    name = "{}"'.format(rule.name))
-        if rule.description is not None:
-            print('    description = {}'.format(json.dumps(rule.description)))
-        print('    source_zones = {}'.format(json.dumps(rule.fromzone)))
-        print('    source_addresses = {}'.format(json.dumps(rule.source)))
-        if rule.negate_source is not None:
-            print('    negate_source = true')
-        print('    source_users = {}'.format(json.dumps(rule.source_user)))
-        print('    hip_profiles = {}'.format(json.dumps(rule.hip_profiles)))
-        print('    destination_zones = {}'.format(json.dumps(rule.tozone)))
-        print('    destination_addresses = {}'.format(json.dumps(rule.destination)))
-        if rule.negate_destination is not None:
-            print('    negate_destination = true')
-        print('    applications = {}'.format(json.dumps(rule.application)))
-        print('    services = {}'.format(json.dumps(rule.service)))
         if rule.category is None:
             rule.category = ["any"]
-        print('    categories = {}'.format(json.dumps(rule.category)))
-        if rule.action is not None:
-            print('    action = "{}"'.format(rule.action))
-        if rule.log_start is not None:
-            print('    log_start = {}'.format(json.dumps(rule.log_start)))
-        if rule.log_end is not None:
-            print('    log_end = {}'.format(json.dumps(rule.log_end)))
-        if rule.log_setting is not None:
-            print('    log_setting = "{}"'.format(rule.log_setting))
-        if rule.tag is not None:
-            print('    tags = {}'.format(json.dumps(rule.tag)))
-        if rule.negate_source is not None:
-            print('    negate_source = {}'.format(json.dumps(rule.negate_source)))
-        if rule.negate_destination is not None:
-            print('    negate_destination = {}'.format(json.dumps(rule.negate_destination)))
+        rule_dumps_values({
+            'name': rule.name,
+            'description': rule.description,
+            'source_zones': rule.fromzone,
+            'source_addresses': rule.source,
+            'negate_source': rule.negate_source,
+            'source_users': rule.source_user,
+            'hip_profiles': rule.hip_profiles,
+            'destination_zones': rule.tozone,
+            'destination_addresses': rule.destination,
+            'negate_destination': rule.negate_destination,
+            'applications': rule.application,
+            'services': rule.service,
+            'categories': rule.category,
+            'action': rule.action,
+            'log_start': rule.log_start,
+            'log_end': rule.log_end,
+            'log_setting': rule.log_setting,
+            'tags': rule.tag,
+            'disabled': rule.disabled,
+            'schedule': rule.schedule,
+            'icmp_unreachable': rule.icmp_unreachable,
+            'disable_server_response_inspection': rule.disable_server_response_inspection,
+            'group': rule.group,
+            'virus': rule.virus,
+            'spyware': rule.spyware,
+            'vulnerability': rule.vulnerability,
+            'url_filtering': rule.url_filtering,
+            'file_blocking': rule.file_blocking,
+            'wildfire_analysis': rule.wildfire_analysis,
+            'data_filtering': rule.data_filtering,
+            'target': rule.target,
+            'negate_target': rule.negate_target
+        })
+
         print('  }')
 
 
