@@ -10,7 +10,7 @@ import pandevice.errors
 import pandevice.panorama
 import pandevice.objects
 import pandevice.policies
-from typing import List, Optional
+from typing import List
 
 
 dg = None
