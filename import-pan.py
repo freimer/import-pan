@@ -179,7 +179,7 @@ def parse_rulebase():
         process_rules(pandevice.policies.SecurityRule.refreshall(rulebase))
         print('}')
     else:
-        print('resource "panos_panorama_security_policy" "{}-pro" {{'.format(options.device_group))
+        print('resource "panos_panorama_security_policy" "{}-pre" {{'.format(options.device_group))
         print('  device_group      = "{}"'.format(options.device_group))
         print('  rulebase          = "pre-rulebase"')
         rulebase = pandevice.policies.PreRulebase()
