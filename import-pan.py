@@ -25,9 +25,9 @@ def parse_config():
     parser = optparse.OptionParser(version='%prog 1.0.0',
                                    description='%prog connects to the given PAN device with the given user and password'
                                                ' and retrieves the configuration.  It then creates a Terraform file to '
-                                               'recreate the configuration.  If the device is a Panorama device a Device'
-                                               ' Group can be specified.  Options are not necessary if environment '
-                                               'variables are set.')
+                                               'recreate the configuration.  If the device is a Panorama device a '
+                                               'Device Group can be specified.  Options are not necessary if '
+                                               'environment variables are set.')
     parser.add_option('-p', '--pan-device', default=os.environ.get('PANDEVICE', None),
                       help='Panorama or PANOS device to pull configuration from (Env Var: PANDEVICE')
     parser.add_option('-u', '--user', default=os.environ.get('PANUSER', None),
