@@ -151,6 +151,20 @@ def parse_address_group():
         print('}')
 
 
+def parse_service_group():
+    global dg, objects, options, pan
+    names: List[str] = [o.name for o in dg.findall(pandevice.objects.ServiceGroup)]
+    for name in sorted(names):
+        o: pandevice.objects.ServiceGroup = dg.find(name, pandevice.objects.ServiceGroup)
+        object_header(o, 'panos_service_group', 'panos_panorama_service_group')
+        dumps_values({
+            'name': o.name,
+            'services': transform_object_reference(o.value),
+            'tags': o.tag
+        })
+        print('}')
+
+
 def dumps_values(m, indent=2):
     i = ' ' * indent
     for p in sorted(m.keys()):
@@ -234,6 +248,8 @@ def parse_rulebase():
 def main():
     global dg, options, pan
     parse_config()
+    parse_service_objects()
+    parse_service_group()
     parse_address_objects()
     parse_address_group()
     parse_rulebase()
