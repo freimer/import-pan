@@ -64,6 +64,14 @@ def parse_config():
             exit(2)
     else:
         dg = pan
+        # For Panorama Device Groups Address Objects and Address Groups are read in when we refresh the
+        # Device Group.  For firewalls, we need to refresh them individually
+        ao = pandevice.objects.AddressObject()
+        dg.add(ao)
+        ao.refreshall(dg, running_config=True)
+        ag = pandevice.objects.AddressGroup()
+        dg.add(ag)
+        ag.refreshall(dg, running_config=True)
 
 
 def parse_address_objects():
