@@ -2,6 +2,7 @@
 
 
 import os
+import sys
 import json
 import optparse
 import pandevice
@@ -10,12 +11,14 @@ import pandevice.errors
 import pandevice.panorama
 import pandevice.objects
 import pandevice.policies
-from typing import List, Optional
+from typing import List, Union
 
 
 dg = None
+objects = {}
 options = None
 pan = None
+services = {}
 
 
 def parse_config():
@@ -23,9 +26,9 @@ def parse_config():
     parser = optparse.OptionParser(version='%prog 1.0.0',
                                    description='%prog connects to the given PAN device with the given user and password'
                                                ' and retrieves the configuration.  It then creates a Terraform file to '
-                                               'recreate the configuration.  If the device is a Panorama device a Device'
-                                               ' Group can be specified.  Options are not necessary if environment '
-                                               'variables are set.')
+                                               'recreate the configuration.  If the device is a Panorama device a '
+                                               'Device Group can be specified.  Options are not necessary if '
+                                               'environment variables are set.')
     parser.add_option('-p', '--pan-device', default=os.environ.get('PANDEVICE', None),
                       help='Panorama or PANOS device to pull configuration from (Env Var: PANDEVICE')
     parser.add_option('-u', '--user', default=os.environ.get('PANUSER', None),
@@ -49,7 +52,7 @@ def parse_config():
     try:
         pan = pandevice.base.PanDevice.create_from_device(options.pan_device, options.user, options.password)
     except pandevice.errors.PanURLError as e:
-        print('Error connecting to PAN Device {} with user {}'.format(options.pan_device, options.user))
+        print('Error connecting to PAN Device {} with user {}: {}'.format(options.pan_device, options.user, e))
         exit(1)
     if type(pan) == pandevice.panorama.Panorama:
         if options.device_group is None:
@@ -78,73 +81,126 @@ def name_to_resource(s: str) -> str:
     return s.replace('.', '_')
 
 
-def parse_address_objects():
-    global dg, options, pan
-    names: List[str] = [ao.name for ao in dg.findall(pandevice.objects.AddressObject)]
+def generic_header(o, panos_resource_type, panorama_resource_type, t):
+    global dg, objects, options, pan
+    if o.name in t:
+        print('Error: object {} already encountered'.format(o.name), file=sys.stderr)
+    if dg == pan:
+        print('resource "{}" "{}" {{'.format(panos_resource_type, name_to_resource(o.name)))
+        t[o.name] = '${{{}.{}.name}}'.format(panos_resource_type, name_to_resource(o.name))
+    else:
+        print('resource "{}" "{}" {{'.format(panorama_resource_type, name_to_resource(o.name)))
+        t[o.name] = '${{{}.{}.name}}'.format(panorama_resource_type, name_to_resource(o.name))
+        print('  device_group = "{}"'.format(options.device_group))
+
+
+def object_header(o, panos_resource_type, panorama_resource_type):
+    global objects
+    generic_header(o, panos_resource_type, panorama_resource_type, objects)
+
+
+def service_header(o, panos_resource_type, panorama_resource_type):
+    global services
+    generic_header(o, panos_resource_type, panorama_resource_type, services)
+
+
+def parse_service_objects():
+    global dg, objects, options, pan
+    names: List[str] = [so.name for so in dg.findall(pandevice.objects.ServiceObject)]
     for name in sorted(names):
-        ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
-        if dg == pan:
-            print('resource "panos_address_object" "{}" {{'.format(name_to_resource(ao.name)))
-        else:
-            print('resource "panos_panorama_address_object" "{}" {{'.format(name_to_resource(ao.name)))
-            print('  device_group = "{}"'.format(options.device_group))
-        print('  type         = "{}"'.format(ao.type))
-        print('  name         = "{}"'.format(ao.name))
-        print('  value        = "{}"'.format(ao.value))
-        if ao.description is not None:
-            print('  description  = {}'.format(json.dumps(ao.description)))
-        if ao.tag is not None:
-            print('  tags         = {}'.format(json.dumps(ao.tag)))
+        o: pandevice.objects.ServiceObject = dg.find(name, pandevice.objects.ServiceObject)
+        service_header(o, 'panos_service_object', 'panos_panorama_service_object')
+        dumps_values(
+            {
+                'name': o.name,
+                'protocol': o.protocol,
+                'source_port': o.source_port,
+                'destination_port': o.destination_port,
+                'description': o.description,
+                'tags': o.tag
+            }
+        )
         print('}')
+
+
+def parse_address_objects():
+    global dg, objects, options, pan
+    names: List[str] = [o.name for o in dg.findall(pandevice.objects.AddressObject)]
+    for name in sorted(names):
+        o: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
+        object_header(o, 'panos_address_object', 'panos_panorama_address_object')
+        dumps_values({
+            'type': o.type,
+            'name': o.name,
+            'value': o.value,
+            'description': o.description,
+            'tags': o.tag
+        })
+        print('}')
+
+
+def transform_object_reference(l: list, t) -> Union[List[str], None]:
+    if l is None:
+        return None
+    return [t[i] if i in t else i for i in l]
 
 
 def parse_address_group():
-    global dg, options, pan
-    names: List[str] = [ag.name for ag in dg.findall(pandevice.objects.AddressGroup)]
+    global dg, objects, options, pan
+    names: List[str] = [o.name for o in dg.findall(pandevice.objects.AddressGroup)]
     for name in sorted(names):
-        ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
-        if dg == pan:
-            print('resource "panos_address_group" "{}" {{'.format(name_to_resource(ag.name)))
-        else:
-            print('resource "panos_panorama_address_group" "{}" {{'.format(name_to_resource(ag.name)))
-            print('  device_group      = "{}"'.format(options.device_group))
-        print('  name              = "{}"'.format(ag.name))
-        if ag.static_value is not None:
-            print('  static_addresses  = {}'.format(json.dumps(ag.static_value)))
-        if ag.dynamic_value is not None:
-            print('  dynamic_match     = "{}"'.format(ag.dynamic_value))
-        if ag.description is not None:
-            print('  description       = {}'.format(json.dumps(ag.description)))
-        if ag.tag is not None:
-            print('  tags              = {}'.format(json.dumps(ag.tag)))
+        o: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
+        object_header(o, 'panos_address_group', 'panos_panorama_address_group')
+        dumps_values({
+            'name': o.name,
+            'static_addresses': transform_object_reference(o.static_value, objects),
+            'dynamic_match': o.dynamic_value,
+            'description': o.description,
+            'tags': o.tag
+        })
         print('}')
 
 
-def rule_dumps_values(m):
+def parse_service_group():
+    global dg, objects, options, pan, services
+    names: List[str] = [o.name for o in dg.findall(pandevice.objects.ServiceGroup)]
+    for name in sorted(names):
+        o: pandevice.objects.ServiceGroup = dg.find(name, pandevice.objects.ServiceGroup)
+        object_header(o, 'panos_service_group', 'panos_panorama_service_group')
+        dumps_values({
+            'name': o.name,
+            'services': transform_object_reference(o.value, services),
+            'tags': o.tag
+        })
+        print('}')
+
+
+def dumps_values(m, indent=2):
+    i = ' ' * indent
     for p in sorted(m.keys()):
         if m[p] is not None:
-            print('    {} = {}'.format(p, json.dumps(m[p])))
+            print('{}{} = {}'.format(i, p, json.dumps(m[p])))
 
 
 def process_rules(rules: List[pandevice.policies.SecurityRule]):
-    global dg, options, pan
+    global dg, options, pan, services
     for rule in rules:
         print('  rule {')
         if rule.category is None:
             rule.category = ["any"]
-        rule_dumps_values({
+        dumps_values({
             'name': rule.name,
             'description': rule.description,
             'source_zones': rule.fromzone,
-            'source_addresses': rule.source,
+            'source_addresses': transform_object_reference(rule.source, objects),
             'negate_source': rule.negate_source,
             'source_users': rule.source_user,
             'hip_profiles': rule.hip_profiles,
             'destination_zones': rule.tozone,
-            'destination_addresses': rule.destination,
+            'destination_addresses': transform_object_reference(rule.destination, objects),
             'negate_destination': rule.negate_destination,
             'applications': rule.application,
-            'services': rule.service,
+            'services': transform_object_reference(rule.service, services),
             'categories': rule.category,
             'action': rule.action,
             'log_start': rule.log_start,
@@ -169,7 +225,7 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             'data_filtering': rule.data_filtering,
             'target': rule.target,
             'negate_target': rule.negate_target
-        })
+        }, indent=4)
 
         print('  }')
 
@@ -202,6 +258,8 @@ def parse_rulebase():
 def main():
     global dg, options, pan
     parse_config()
+    parse_service_objects()
+    parse_service_group()
     parse_address_objects()
     parse_address_group()
     parse_rulebase()
