@@ -145,9 +145,9 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
         if rule.action is not None:
             print('    action = "{}"'.format(rule.action))
         if rule.log_start is not None:
-            print('    log_start = {}'.format('true' if rule.log_start else 'false'))
+            print('    log_start = {}'.format(json.dumps(rule.log_start)))
         if rule.log_end is not None:
-            print('    log_end = {}'.format('true' if rule.log_end else 'false'))
+            print('    log_end = {}'.format(json.dumps(rule.log_end)))
         if rule.log_setting is not None:
             print('    log_setting = "{}"'.format(rule.log_setting))
         if rule.tag is not None:
