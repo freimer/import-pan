@@ -130,6 +130,8 @@ def parse_address_objects():
 
 def transform_object_reference(l: list) -> list:
     global objects
+    if l is None:
+        return None
     return [objects[i] if i in objects else i for i in l]
 
 
