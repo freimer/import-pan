@@ -64,23 +64,35 @@ def parse_config():
             exit(2)
     else:
         dg = pan
+        # For Panorama Device Groups Address Objects and Address Groups are read in when we refresh the
+        # Device Group.  For firewalls, we need to refresh them individually
+        ao = pandevice.objects.AddressObject()
+        dg.add(ao)
+        ao.refreshall(dg, running_config=True)
+        ag = pandevice.objects.AddressGroup()
+        dg.add(ag)
+        ag.refreshall(dg, running_config=True)
+
+
+def name_to_resource(s: str) -> str:
+    return s.replace('.', '_')
 
 
 def parse_address_objects():
     global dg, options, pan
     names: List[str] = [ao.name for ao in dg.findall(pandevice.objects.AddressObject)]
     for name in sorted(names):
-        ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject) # type:
+        ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
         if dg == pan:
-            print('resource "panos_address_object" "{}" {{'.format(ao.name))
+            print('resource "panos_address_object" "{}" {{'.format(name_to_resource(ao.name)))
         else:
-            print('resource "panos_panorama_address_object" "{}" {{'.format(ao.name))
+            print('resource "panos_panorama_address_object" "{}" {{'.format(name_to_resource(ao.name)))
             print('  device_group = "{}"'.format(options.device_group))
         print('  type         = "{}"'.format(ao.type))
         print('  name         = "{}"'.format(ao.name))
         print('  value        = "{}"'.format(ao.value))
         if ao.description is not None:
-            print('  description  = "{}"'.format(ao.description))
+            print('  description  = {}'.format(json.dumps(ao.description)))
         if ao.tag is not None:
             print('  tags         = {}'.format(json.dumps(ao.tag)))
         print('}')
@@ -90,11 +102,11 @@ def parse_address_group():
     global dg, options, pan
     names: List[str] = [ag.name for ag in dg.findall(pandevice.objects.AddressGroup)]
     for name in sorted(names):
-        ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup) # type:
+        ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
         if dg == pan:
-            print('resource "panos_address_object" "{}" {{'.format(ag.name))
+            print('resource "panos_address_group" "{}" {{'.format(name_to_resource(ag.name)))
         else:
-            print('resource "panos_panorama_address_object" "{}" {{'.format(ag.name))
+            print('resource "panos_panorama_address_group" "{}" {{'.format(name_to_resource(ag.name)))
             print('  device_group      = "{}"'.format(options.device_group))
         print('  name              = "{}"'.format(ag.name))
         if ag.static_value is not None:
@@ -102,34 +114,63 @@ def parse_address_group():
         if ag.dynamic_value is not None:
             print('  dynamic_match     = "{}"'.format(ag.dynamic_value))
         if ag.description is not None:
-            print('  description       = "{}"'.format(ag.description))
+            print('  description       = {}'.format(json.dumps(ag.description)))
         if ag.tag is not None:
             print('  tags              = {}'.format(json.dumps(ag.tag)))
         print('}')
+
+
+def rule_dumps_values(m):
+    for p in sorted(m.keys()):
+        if m[p] is not None:
+            print('    {} = {}'.format(p, json.dumps(m[p])))
 
 
 def process_rules(rules: List[pandevice.policies.SecurityRule]):
     global dg, options, pan
     for rule in rules:
         print('  rule {')
-        print('    name = "{}"'.format(rule.name))
-        if rule.description is not None:
-            print('    description = "{}"'.format(rule.description))
-        print('    source_zones = {}'.format(json.dumps(rule.fromzone)))
-        print('    source_addresses = {}'.format(json.dumps(rule.source)))
-        if rule.negate_source is not None:
-            print('    negate_source = true')
-        print('    source_users = {}'.format(json.dumps(rule.source_user)))
-        print('    hip_profiles = {}'.format(json.dumps(rule.hip_profiles)))
-        print('    destination_zones = {}'.format(json.dumps(rule.tozone)))
-        print('    destination_addresses = {}'.format(json.dumps(rule.destination)))
-        if rule.negate_destination is not None:
-            print('    negate_destination = true')
-        print('    applications = {}'.format(json.dumps(rule.application)))
-        print('    services = {}'.format(json.dumps(rule.service)))
-        print('    categories = {}'.format(json.dumps(rule.category)))
-        if rule.action is not None:
-            print('    action = "{}"'.format(rule.action))
+        if rule.category is None:
+            rule.category = ["any"]
+        rule_dumps_values({
+            'name': rule.name,
+            'description': rule.description,
+            'source_zones': rule.fromzone,
+            'source_addresses': rule.source,
+            'negate_source': rule.negate_source,
+            'source_users': rule.source_user,
+            'hip_profiles': rule.hip_profiles,
+            'destination_zones': rule.tozone,
+            'destination_addresses': rule.destination,
+            'negate_destination': rule.negate_destination,
+            'applications': rule.application,
+            'services': rule.service,
+            'categories': rule.category,
+            'action': rule.action,
+            'log_start': rule.log_start,
+            'log_end': rule.log_end,
+            'log_setting': rule.log_setting,
+            'tags': rule.tag,
+            'disabled': rule.disabled,
+            'schedule': rule.schedule,
+            'icmp_unreachable': rule.icmp_unreachable,
+            'disable_server_response_inspection': rule.disable_server_response_inspection,
+            # Below is a total hack.  SecurityRule.group is supposed to be a str, but is returned as a list
+            # Make sure this doesn't break when pandevice is fixed by checking type
+            'group': rule.group[0] if type(rule.group) == list else rule.group,
+            'virus': rule.virus,
+            'spyware': rule.spyware,
+            'vulnerability': rule.vulnerability,
+            # Below is a total hack.  SecurityRule.url_filtering is supposed to be a str, but is returned as a list
+            # Make sure this doesn't break when pandevice is fixed by checking type
+            'url_filtering': rule.url_filtering[0] if type(rule.url_filtering) == list else rule.url_filtering,
+            'file_blocking': rule.file_blocking,
+            'wildfire_analysis': rule.wildfire_analysis,
+            'data_filtering': rule.data_filtering,
+            'target': rule.target,
+            'negate_target': rule.negate_target
+        })
+
         print('  }')
 
 
@@ -142,7 +183,7 @@ def parse_rulebase():
         process_rules(pandevice.policies.SecurityRule.refreshall(rulebase))
         print('}')
     else:
-        print('resource "panos_panorama_security_policy" "{}-pro" {{'.format(options.device_group))
+        print('resource "panos_panorama_security_policy" "{}-pre" {{'.format(options.device_group))
         print('  device_group      = "{}"'.format(options.device_group))
         print('  rulebase          = "pre-rulebase"')
         rulebase = pandevice.policies.PreRulebase()
