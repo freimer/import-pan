@@ -80,25 +80,51 @@ def name_to_resource(s: str) -> str:
     return s.replace('.', '_')
 
 
+def object_header(o, panos_resource_type, panorama_resource_type):
+    global dg, objects, options, pan
+    if o.name in objects:
+        print('Error: object {} already encountered'.format(o.name), file=sys.stderr)
+    if dg == pan:
+        print('resource "{}" "{}" {{'.format(panos_resource_type, name_to_resource(o.name)))
+        objects[o.name] = '${{{}.{}.name}}'.format(panos_resource_type, name_to_resource(o.name))
+    else:
+        print('resource "{}" "{}" {{'.format(panorama_resource_type, name_to_resource(o.name)))
+        objects[o.name] = '${{{}.{}.name}}'.format(panorama_resource_type, name_to_resource(o.name))
+        print('  device_group = "{}"'.format(options.device_group))
+
+
+def parse_service_objects():
+    global dg, objects, options, pan
+    names: List[str] = [so.name for so in dg.findall(pandevice.objects.ServiceObject)]
+    for name in sorted(names):
+        o: pandevice.objects.ServiceObject = dg.find(name, pandevice.objects.ServiceObject)
+        object_header(o, 'panos_service_object', 'panos_panorama_service_object')
+        dumps_values(
+            {
+                'name': o.name,
+                'protocol': o.protocol,
+                'source_port': o.source_port,
+                'destination_port': o.destination_port,
+                'description': o.description,
+                'tags': o.tag
+            }
+        )
+        print('}')
+
+
 def parse_address_objects():
     global dg, objects, options, pan
-    names: List[str] = [ao.name for ao in dg.findall(pandevice.objects.AddressObject)]
+    names: List[str] = [o.name for o in dg.findall(pandevice.objects.AddressObject)]
     for name in sorted(names):
-        ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
-        if dg == pan:
-            print('resource "panos_address_object" "{}" {{'.format(name_to_resource(ao.name)))
-            objects[ao.name] = '${{panos_address_object.{}.name}}'.format(name_to_resource(ao.name))
-        else:
-            print('resource "panos_panorama_address_object" "{}" {{'.format(name_to_resource(ao.name)))
-            objects[ao.name] = '${{panos_panorama_address_object.{}.name}}'.format(name_to_resource(ao.name))
-            print('  device_group = "{}"'.format(options.device_group))
-        print('  type         = "{}"'.format(ao.type))
-        print('  name         = "{}"'.format(ao.name))
-        print('  value        = "{}"'.format(ao.value))
-        if ao.description is not None:
-            print('  description  = {}'.format(json.dumps(ao.description)))
-        if ao.tag is not None:
-            print('  tags         = {}'.format(json.dumps(ao.tag)))
+        o: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
+        object_header(o, 'panos_address_object', 'panos_panorama_address_object')
+        dumps_values({
+            'type': o.type,
+            'name': o.name,
+            'value': o.value,
+            'description': o.description,
+            'tags': o.tag
+        })
         print('}')
 
 
@@ -109,25 +135,17 @@ def transform_object_reference(l: list) -> list:
 
 def parse_address_group():
     global dg, objects, options, pan
-    names: List[str] = [ag.name for ag in dg.findall(pandevice.objects.AddressGroup)]
+    names: List[str] = [o.name for o in dg.findall(pandevice.objects.AddressGroup)]
     for name in sorted(names):
-        ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
-        if dg == pan:
-            print('resource "panos_address_group" "{}" {{'.format(name_to_resource(ag.name)))
-            objects[ag.name] = '${{panos_address_group.{}.name}}'.format(name_to_resource(ag.name))
-        else:
-            print('resource "panos_panorama_address_group" "{}" {{'.format(name_to_resource(ag.name)))
-            objects[ag.name] = '${{panos_panorama_address_group.{}.name}}'.format(name_to_resource(ag.name))
-            print('  device_group      = "{}"'.format(options.device_group))
-        print('  name              = "{}"'.format(ag.name))
-        if ag.static_value is not None:
-            print('  static_addresses  = {}'.format(json.dumps(transform_object_reference(ag.static_value))))
-        if ag.dynamic_value is not None:
-            print('  dynamic_match     = "{}"'.format(ag.dynamic_value))
-        if ag.description is not None:
-            print('  description       = {}'.format(json.dumps(ag.description)))
-        if ag.tag is not None:
-            print('  tags              = {}'.format(json.dumps(ag.tag)))
+        o: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
+        object_header(o, 'panos_address_group', 'panos_panorama_address_group')
+        dumps_values({
+            'name': o.name,
+            'static_addresses': transform_object_reference(o.static_value),
+            'dynamic_match': o.dynamic_value,
+            'description': o.description,
+            'tags': o.tag
+        })
         print('}')
 
 
