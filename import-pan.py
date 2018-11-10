@@ -74,15 +74,19 @@ def parse_config():
         ag.refreshall(dg, running_config=True)
 
 
+def name_to_resource(s: str) -> str:
+    return s.replace('.', '_')
+
+
 def parse_address_objects():
     global dg, options, pan
     names: List[str] = [ao.name for ao in dg.findall(pandevice.objects.AddressObject)]
     for name in sorted(names):
         ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
         if dg == pan:
-            print('resource "panos_address_object" "{}" {{'.format(ao.name))
+            print('resource "panos_address_object" "{}" {{'.format(name_to_resource(ao.name)))
         else:
-            print('resource "panos_panorama_address_object" "{}" {{'.format(ao.name))
+            print('resource "panos_panorama_address_object" "{}" {{'.format(name_to_resource(ao.name)))
             print('  device_group = "{}"'.format(options.device_group))
         print('  type         = "{}"'.format(ao.type))
         print('  name         = "{}"'.format(ao.name))
@@ -100,9 +104,9 @@ def parse_address_group():
     for name in sorted(names):
         ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
         if dg == pan:
-            print('resource "panos_address_group" "{}" {{'.format(ag.name))
+            print('resource "panos_address_group" "{}" {{'.format(name_to_resource(ag.name)))
         else:
-            print('resource "panos_panorama_address_group" "{}" {{'.format(ag.name))
+            print('resource "panos_panorama_address_group" "{}" {{'.format(name_to_resource(ag.name)))
             print('  device_group      = "{}"'.format(options.device_group))
         print('  name              = "{}"'.format(ag.name))
         if ag.static_value is not None:
