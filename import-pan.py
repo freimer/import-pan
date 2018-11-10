@@ -11,7 +11,7 @@ import pandevice.errors
 import pandevice.panorama
 import pandevice.objects
 import pandevice.policies
-from typing import List
+from typing import List, Union
 
 
 dg = None
@@ -128,7 +128,7 @@ def parse_address_objects():
         print('}')
 
 
-def transform_object_reference(l: list) -> list:
+def transform_object_reference(l: list) -> Union[List[str], None]:
     global objects
     if l is None:
         return None
