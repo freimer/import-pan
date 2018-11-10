@@ -11,7 +11,7 @@ import pandevice.errors
 import pandevice.panorama
 import pandevice.objects
 import pandevice.policies
-from typing import List, Union
+from typing import List, Union, Dict
 
 
 dg = None
@@ -81,27 +81,28 @@ def name_to_resource(s: str) -> str:
     return s.replace('.', '_')
 
 
-def generic_header(o, panos_resource_type, panorama_resource_type, t):
+def generic_header(o, panos_resource_type, panorama_resource_type, t) -> Dict[str, str]:
     global dg, objects, options, pan
     if o.name in t:
         print('Error: object {} already encountered'.format(o.name), file=sys.stderr)
     if dg == pan:
         print('resource "{}" "{}" {{'.format(panos_resource_type, name_to_resource(o.name)))
         t[o.name] = '${{{}.{}.name}}'.format(panos_resource_type, name_to_resource(o.name))
+        return {}
     else:
         print('resource "{}" "{}" {{'.format(panorama_resource_type, name_to_resource(o.name)))
         t[o.name] = '${{{}.{}.name}}'.format(panorama_resource_type, name_to_resource(o.name))
-        print('  device_group = "{}"'.format(options.device_group))
+        return {'device_group': options.device_group}
 
 
-def object_header(o, panos_resource_type, panorama_resource_type):
+def object_header(o, panos_resource_type, panorama_resource_type) -> Dict[str, str]:
     global objects
-    generic_header(o, panos_resource_type, panorama_resource_type, objects)
+    return generic_header(o, panos_resource_type, panorama_resource_type, objects)
 
 
-def service_header(o, panos_resource_type, panorama_resource_type):
+def service_header(o, panos_resource_type, panorama_resource_type) -> Dict[str, str]:
     global services
-    generic_header(o, panos_resource_type, panorama_resource_type, services)
+    return generic_header(o, panos_resource_type, panorama_resource_type, services)
 
 
 def parse_service_objects():
@@ -109,9 +110,8 @@ def parse_service_objects():
     names: List[str] = [so.name for so in dg.findall(pandevice.objects.ServiceObject)]
     for name in sorted(names):
         o: pandevice.objects.ServiceObject = dg.find(name, pandevice.objects.ServiceObject)
-        service_header(o, 'panos_service_object', 'panos_panorama_service_object')
-        dumps_values(
-            {
+        values = service_header(o, 'panos_service_object', 'panos_panorama_service_object')
+        values.update({
                 'name': o.name,
                 'protocol': o.protocol,
                 'source_port': o.source_port,
@@ -120,7 +120,8 @@ def parse_service_objects():
                 'tags': o.tag
             }
         )
-        print('}')
+        dumps_values(values)
+        print('}\n')
 
 
 def parse_address_objects():
@@ -128,15 +129,16 @@ def parse_address_objects():
     names: List[str] = [o.name for o in dg.findall(pandevice.objects.AddressObject)]
     for name in sorted(names):
         o: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
-        object_header(o, 'panos_address_object', 'panos_panorama_address_object')
-        dumps_values({
+        values = object_header(o, 'panos_address_object', 'panos_panorama_address_object')
+        values.update({
             'type': o.type,
             'name': o.name,
             'value': o.value,
             'description': o.description,
             'tags': o.tag
         })
-        print('}')
+        dumps_values(values)
+        print('}\n')
 
 
 def transform_object_reference(l: list, t) -> Union[List[str], None]:
@@ -150,15 +152,16 @@ def parse_address_group():
     names: List[str] = [o.name for o in dg.findall(pandevice.objects.AddressGroup)]
     for name in sorted(names):
         o: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
-        object_header(o, 'panos_address_group', 'panos_panorama_address_group')
-        dumps_values({
+        values = object_header(o, 'panos_address_group', 'panos_panorama_address_group')
+        values.update({
             'name': o.name,
             'static_addresses': transform_object_reference(o.static_value, objects),
             'dynamic_match': o.dynamic_value,
             'description': o.description,
             'tags': o.tag
         })
-        print('}')
+        dumps_values(values)
+        print('}\n')
 
 
 def parse_service_group():
@@ -166,20 +169,22 @@ def parse_service_group():
     names: List[str] = [o.name for o in dg.findall(pandevice.objects.ServiceGroup)]
     for name in sorted(names):
         o: pandevice.objects.ServiceGroup = dg.find(name, pandevice.objects.ServiceGroup)
-        object_header(o, 'panos_service_group', 'panos_panorama_service_group')
-        dumps_values({
+        values = object_header(o, 'panos_service_group', 'panos_panorama_service_group')
+        values.update({
             'name': o.name,
             'services': transform_object_reference(o.value, services),
             'tags': o.tag
         })
-        print('}')
+        dumps_values(values)
+        print('}\n')
 
 
 def dumps_values(m, indent=2):
     i = ' ' * indent
-    for p in sorted(m.keys()):
-        if m[p] is not None:
-            print('{}{} = {}'.format(i, p, json.dumps(m[p])))
+    keys = [k for k in m.keys() if m[k] is not None]
+    s = max([len(k) for k in keys])
+    for p in sorted(keys):
+        print('{}{} = {}'.format(i, p.ljust(s), json.dumps(m[p])))
 
 
 def process_rules(rules: List[pandevice.policies.SecurityRule]):
@@ -227,7 +232,7 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             'negate_target': rule.negate_target
         }, indent=4)
 
-        print('  }')
+        print('  }\n')
 
 
 def parse_rulebase():
@@ -240,19 +245,19 @@ def parse_rulebase():
         print('}')
     else:
         print('resource "panos_panorama_security_policy" "{}-pre" {{'.format(options.device_group))
-        print('  device_group      = "{}"'.format(options.device_group))
-        print('  rulebase          = "pre-rulebase"')
+        print('  device_group = "{}"'.format(options.device_group))
+        print('  rulebase     = "pre-rulebase"\n')
         rulebase = pandevice.policies.PreRulebase()
         dg.add(rulebase)
         process_rules(pandevice.policies.SecurityRule.refreshall(rulebase))
-        print('}')
+        print('}\n')
         print('resource "panos_panorama_security_policy" "{}-post" {{'.format(options.device_group))
-        print('  device_group      = "{}"'.format(options.device_group))
-        print('  rulebase          = "post-rulebase"')
+        print('  device_group = "{}"'.format(options.device_group))
+        print('  rulebase     = "post-rulebase"\n')
         rulebase = pandevice.policies.PostRulebase()
         dg.add(rulebase)
         process_rules(pandevice.policies.SecurityRule.refreshall(rulebase))
-        print('}')
+        print('}\n')
 
 
 def main():
