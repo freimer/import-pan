@@ -100,9 +100,9 @@ def parse_address_group():
     for name in sorted(names):
         ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
         if dg == pan:
-            print('resource "panos_address_object" "{}" {{'.format(ag.name))
+            print('resource "panos_address_group" "{}" {{'.format(ag.name))
         else:
-            print('resource "panos_panorama_address_object" "{}" {{'.format(ag.name))
+            print('resource "panos_panorama_address_group" "{}" {{'.format(ag.name))
             print('  device_group      = "{}"'.format(options.device_group))
         print('  name              = "{}"'.format(ag.name))
         if ag.static_value is not None:
