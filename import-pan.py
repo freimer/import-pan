@@ -155,11 +155,15 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             'schedule': rule.schedule,
             'icmp_unreachable': rule.icmp_unreachable,
             'disable_server_response_inspection': rule.disable_server_response_inspection,
-            'group': rule.group,
+            # Below is a total hack.  SecurityRule.group is supposed to be a str, but is returned as a list
+            # Make sure this doesn't break when pandevice is fixed by checking type
+            'group': rule.group[0] if type(rule.group) == list else rule.group,
             'virus': rule.virus,
             'spyware': rule.spyware,
             'vulnerability': rule.vulnerability,
-            'url_filtering': rule.url_filtering,
+            # Below is a total hack.  SecurityRule.url_filtering is supposed to be a str, but is returned as a list
+            # Make sure this doesn't break when pandevice is fixed by checking type
+            'url_filtering': rule.url_filtering[0] if type(rule.url_filtering) == list else rule.url_filtering,
             'file_blocking': rule.file_blocking,
             'wildfire_analysis': rule.wildfire_analysis,
             'data_filtering': rule.data_filtering,
