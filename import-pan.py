@@ -139,6 +139,8 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             print('    negate_destination = true')
         print('    applications = {}'.format(json.dumps(rule.application)))
         print('    services = {}'.format(json.dumps(rule.service)))
+        if rule.category is None:
+            rule.category = ["any"]
         print('    categories = {}'.format(json.dumps(rule.category)))
         if rule.action is not None:
             print('    action = "{}"'.format(rule.action))
