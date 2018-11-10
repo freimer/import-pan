@@ -14,6 +14,7 @@ from typing import List, Optional
 
 
 dg = None
+objects = {}
 options = None
 pan = None
 
@@ -79,14 +80,16 @@ def name_to_resource(s: str) -> str:
 
 
 def parse_address_objects():
-    global dg, options, pan
+    global dg, objects, options, pan
     names: List[str] = [ao.name for ao in dg.findall(pandevice.objects.AddressObject)]
     for name in sorted(names):
         ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
         if dg == pan:
             print('resource "panos_address_object" "{}" {{'.format(name_to_resource(ao.name)))
+            objects[ao.name] = '${{panos_address_object.{}.name}}'.format(name_to_resource(ao.name))
         else:
             print('resource "panos_panorama_address_object" "{}" {{'.format(name_to_resource(ao.name)))
+            objects[ao.name] = '${{panos_panorama_address_object.{}.name}}'.format(name_to_resource(ao.name))
             print('  device_group = "{}"'.format(options.device_group))
         print('  type         = "{}"'.format(ao.type))
         print('  name         = "{}"'.format(ao.name))
@@ -98,19 +101,26 @@ def parse_address_objects():
         print('}')
 
 
+def transform_object_reference(l: list) -> list:
+    global objects
+    return [objects[i] if i in objects else i for i in l]
+
+
 def parse_address_group():
-    global dg, options, pan
+    global dg, objects, options, pan
     names: List[str] = [ag.name for ag in dg.findall(pandevice.objects.AddressGroup)]
     for name in sorted(names):
         ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
         if dg == pan:
             print('resource "panos_address_group" "{}" {{'.format(name_to_resource(ag.name)))
+            objects[ag.name] = '${{panos_address_group.{}.name}}'.format(name_to_resource(ag.name))
         else:
             print('resource "panos_panorama_address_group" "{}" {{'.format(name_to_resource(ag.name)))
+            objects[ag.name] = '${{panos_panorama_address_group.{}.name}}'.format(name_to_resource(ag.name))
             print('  device_group      = "{}"'.format(options.device_group))
         print('  name              = "{}"'.format(ag.name))
         if ag.static_value is not None:
-            print('  static_addresses  = {}'.format(json.dumps(ag.static_value)))
+            print('  static_addresses  = {}'.format(json.dumps(transform_object_reference(ag.static_value))))
         if ag.dynamic_value is not None:
             print('  dynamic_match     = "{}"'.format(ag.dynamic_value))
         if ag.description is not None:
