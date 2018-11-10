@@ -152,6 +152,10 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             print('    log_setting = "{}"'.format(rule.log_setting))
         if rule.tag is not None:
             print('    tags = {}'.format(json.dumps(rule.tag)))
+        if rule.negate_source is not None:
+            print('    negate_source = {}'.format(json.dumps(rule.negate_source)))
+        if rule.negate_destination is not None:
+            print('    negate_destination = {}'.format(json.dumps(rule.negate_destination)))
         print('  }')
 
 
