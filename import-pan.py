@@ -18,6 +18,7 @@ dg = None
 objects = {}
 options = None
 pan = None
+services = {}
 
 
 def parse_config():
@@ -80,17 +81,27 @@ def name_to_resource(s: str) -> str:
     return s.replace('.', '_')
 
 
-def object_header(o, panos_resource_type, panorama_resource_type):
+def generic_header(o, panos_resource_type, panorama_resource_type, t):
     global dg, objects, options, pan
-    if o.name in objects:
+    if o.name in t:
         print('Error: object {} already encountered'.format(o.name), file=sys.stderr)
     if dg == pan:
         print('resource "{}" "{}" {{'.format(panos_resource_type, name_to_resource(o.name)))
-        objects[o.name] = '${{{}.{}.name}}'.format(panos_resource_type, name_to_resource(o.name))
+        t[o.name] = '${{{}.{}.name}}'.format(panos_resource_type, name_to_resource(o.name))
     else:
         print('resource "{}" "{}" {{'.format(panorama_resource_type, name_to_resource(o.name)))
-        objects[o.name] = '${{{}.{}.name}}'.format(panorama_resource_type, name_to_resource(o.name))
+        t[o.name] = '${{{}.{}.name}}'.format(panorama_resource_type, name_to_resource(o.name))
         print('  device_group = "{}"'.format(options.device_group))
+
+
+def object_header(o, panos_resource_type, panorama_resource_type):
+    global objects
+    generic_header(o, panos_resource_type, panorama_resource_type, objects)
+
+
+def service_header(o, panos_resource_type, panorama_resource_type):
+    global services
+    generic_header(o, panos_resource_type, panorama_resource_type, services)
 
 
 def parse_service_objects():
@@ -98,7 +109,7 @@ def parse_service_objects():
     names: List[str] = [so.name for so in dg.findall(pandevice.objects.ServiceObject)]
     for name in sorted(names):
         o: pandevice.objects.ServiceObject = dg.find(name, pandevice.objects.ServiceObject)
-        object_header(o, 'panos_service_object', 'panos_panorama_service_object')
+        service_header(o, 'panos_service_object', 'panos_panorama_service_object')
         dumps_values(
             {
                 'name': o.name,
@@ -128,11 +139,10 @@ def parse_address_objects():
         print('}')
 
 
-def transform_object_reference(l: list) -> Union[List[str], None]:
-    global objects
+def transform_object_reference(l: list, t) -> Union[List[str], None]:
     if l is None:
         return None
-    return [objects[i] if i in objects else i for i in l]
+    return [t[i] if i in t else i for i in l]
 
 
 def parse_address_group():
@@ -143,7 +153,7 @@ def parse_address_group():
         object_header(o, 'panos_address_group', 'panos_panorama_address_group')
         dumps_values({
             'name': o.name,
-            'static_addresses': transform_object_reference(o.static_value),
+            'static_addresses': transform_object_reference(o.static_value, objects),
             'dynamic_match': o.dynamic_value,
             'description': o.description,
             'tags': o.tag
@@ -152,14 +162,14 @@ def parse_address_group():
 
 
 def parse_service_group():
-    global dg, objects, options, pan
+    global dg, objects, options, pan, services
     names: List[str] = [o.name for o in dg.findall(pandevice.objects.ServiceGroup)]
     for name in sorted(names):
         o: pandevice.objects.ServiceGroup = dg.find(name, pandevice.objects.ServiceGroup)
         object_header(o, 'panos_service_group', 'panos_panorama_service_group')
         dumps_values({
             'name': o.name,
-            'services': transform_object_reference(o.value),
+            'services': transform_object_reference(o.value, services),
             'tags': o.tag
         })
         print('}')
@@ -173,7 +183,7 @@ def dumps_values(m, indent=2):
 
 
 def process_rules(rules: List[pandevice.policies.SecurityRule]):
-    global dg, options, pan
+    global dg, options, pan, services
     for rule in rules:
         print('  rule {')
         if rule.category is None:
@@ -182,15 +192,15 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             'name': rule.name,
             'description': rule.description,
             'source_zones': rule.fromzone,
-            'source_addresses': transform_object_reference(rule.source),
+            'source_addresses': transform_object_reference(rule.source, objects),
             'negate_source': rule.negate_source,
             'source_users': rule.source_user,
             'hip_profiles': rule.hip_profiles,
             'destination_zones': rule.tozone,
-            'destination_addresses': transform_object_reference(rule.destination),
+            'destination_addresses': transform_object_reference(rule.destination, objects),
             'negate_destination': rule.negate_destination,
             'applications': rule.application,
-            'services': rule.service,
+            'services': transform_object_reference(rule.service, services),
             'categories': rule.category,
             'action': rule.action,
             'log_start': rule.log_start,
