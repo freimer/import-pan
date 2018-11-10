@@ -131,10 +131,11 @@ def parse_address_group():
         print('}')
 
 
-def rule_dumps_values(m):
+def dumps_values(m, indent=2):
+    i = ' ' * indent
     for p in sorted(m.keys()):
         if m[p] is not None:
-            print('    {} = {}'.format(p, json.dumps(m[p])))
+            print('{}{} = {}'.format(i, p, json.dumps(m[p])))
 
 
 def process_rules(rules: List[pandevice.policies.SecurityRule]):
@@ -143,7 +144,7 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
         print('  rule {')
         if rule.category is None:
             rule.category = ["any"]
-        rule_dumps_values({
+        dumps_values({
             'name': rule.name,
             'description': rule.description,
             'source_zones': rule.fromzone,
@@ -180,7 +181,7 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
             'data_filtering': rule.data_filtering,
             'target': rule.target,
             'negate_target': rule.negate_target
-        })
+        }, indent=4)
 
         print('  }')
 
