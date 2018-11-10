@@ -92,7 +92,7 @@ def parse_address_objects():
         print('  name         = "{}"'.format(ao.name))
         print('  value        = "{}"'.format(ao.value))
         if ao.description is not None:
-            print('  description  = "{}"'.format(json.dumps(ao.description)))
+            print('  description  = {}'.format(json.dumps(ao.description)))
         if ao.tag is not None:
             print('  tags         = {}'.format(json.dumps(ao.tag)))
         print('}')
@@ -114,7 +114,7 @@ def parse_address_group():
         if ag.dynamic_value is not None:
             print('  dynamic_match     = "{}"'.format(ag.dynamic_value))
         if ag.description is not None:
-            print('  description       = "{}"'.format(json.dumps(ag.description)))
+            print('  description       = {}'.format(json.dumps(ag.description)))
         if ag.tag is not None:
             print('  tags              = {}'.format(json.dumps(ag.tag)))
         print('}')
@@ -126,7 +126,7 @@ def process_rules(rules: List[pandevice.policies.SecurityRule]):
         print('  rule {')
         print('    name = "{}"'.format(rule.name))
         if rule.description is not None:
-            print('    description = "{}"'.format(json.dumps(rule.description)))
+            print('    description = {}'.format(json.dumps(rule.description)))
         print('    source_zones = {}'.format(json.dumps(rule.fromzone)))
         print('    source_addresses = {}'.format(json.dumps(rule.source)))
         if rule.negate_source is not None:
