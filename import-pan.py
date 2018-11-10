@@ -70,7 +70,7 @@ def parse_address_objects():
     global dg, options, pan
     names: List[str] = [ao.name for ao in dg.findall(pandevice.objects.AddressObject)]
     for name in sorted(names):
-        ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject) # type:
+        ao: pandevice.objects.AddressObject = dg.find(name, pandevice.objects.AddressObject)
         if dg == pan:
             print('resource "panos_address_object" "{}" {{'.format(ao.name))
         else:
@@ -90,7 +90,7 @@ def parse_address_group():
     global dg, options, pan
     names: List[str] = [ag.name for ag in dg.findall(pandevice.objects.AddressGroup)]
     for name in sorted(names):
-        ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup) # type:
+        ag: pandevice.objects.AddressGroup = dg.find(name, pandevice.objects.AddressGroup)
         if dg == pan:
             print('resource "panos_address_object" "{}" {{'.format(ag.name))
         else:
