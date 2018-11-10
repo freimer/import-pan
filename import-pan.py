@@ -2,6 +2,7 @@
 
 
 import os
+import sys
 import json
 import optparse
 import pandevice
@@ -50,7 +51,7 @@ def parse_config():
     try:
         pan = pandevice.base.PanDevice.create_from_device(options.pan_device, options.user, options.password)
     except pandevice.errors.PanURLError as e:
-        print('Error connecting to PAN Device {} with user {}'.format(options.pan_device, options.user))
+        print('Error connecting to PAN Device {} with user {}: {}'.format(options.pan_device, options.user, e))
         exit(1)
     if type(pan) == pandevice.panorama.Panorama:
         if options.device_group is None:
